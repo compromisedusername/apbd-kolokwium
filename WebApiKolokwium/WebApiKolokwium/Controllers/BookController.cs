@@ -23,8 +23,28 @@ public class BookController : ControllerBase
             return NotFound(new ExceptionDTO(){Message = "Book for id "+id+" doesnt exists!", StatusCode = 404});
         }
 
-        var res = await _bookRepository.GetAuthors(id);
-        
-        return Ok(res);
+        try
+        {
+            var res = await _bookRepository.GetAuthors(id);
+            return Ok(res);
+        }
+        catch (Exception e)
+        {
+            return BadRequest(new ExceptionDTO(){Message = "Book doesnt exists!", StatusCode = 400 })
+        }
+
     }
+
+    [HttpPost]
+    public async Task<IActionResult> AddBook(AddBookDTO book)
+    {
+        foreach (var author in book.Authors)
+        {
+            if (!await _bookRepository.ExistsAuthor(author))
+                return NotFound(new ExceptionDTO() { Message = "Author not found!", StatusCode = 400 });
+        }
+
+        var res = await _bookRepository.AddBook(book);
+        return StatusCode(201,res);
+}
 }

@@ -2,10 +2,8 @@
 
 namespace WebApiKolokwium.Models;
 
-public class BookDTO
+public class AddBookDTO
 {
-    [Required]
-    public int Id { get; set; }
     [Required]
     public string Title { get; set; }
     [Required]

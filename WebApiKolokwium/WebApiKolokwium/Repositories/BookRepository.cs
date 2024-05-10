@@ -1,4 +1,5 @@
 ﻿using System.Data.SqlClient;
+using Microsoft.AspNetCore.Http.HttpResults;
 using WebApiKolokwium.Models;
 
 namespace WebApiKolokwium.Repositories;
@@ -30,7 +31,7 @@ public class BookRepository : IBookRepository
         return res is not null;
     }
 
-    public async Task<BookDTO> GetAuthors(int id)
+    public async Task<GetBookDTO> GetAuthors(int id)
     {
         var query = 
                   @"SELECT b.title as bookTitle, a.first_name as authorFirstName, a.last_name as authorLastName FROM Books b JOIN books_authors ba ON b.PK = b.PK
@@ -52,13 +53,13 @@ JOIN authors a ON a.PK = ba.FK_author";
         
         
 
-        BookDTO book = null;
+        GetBookDTO getBook = null;
         
         while (await reader.ReadAsync())
         {
-            if (book is not null)
+            if (getBook is not null)
             {
-                book.Authors.Add(new AuthorDTO()
+                getBook.Authors.Add(new AuthorDTO()
                 {
                     LastName = reader.GetString(authorLastName),
                     FirstName = reader.GetString(authorFirstName)
@@ -66,7 +67,7 @@ JOIN authors a ON a.PK = ba.FK_author";
             }
             else
             {
-                book = new BookDTO()
+                getBook = new GetBookDTO()
                 {
                     Id = id,
                     Title = reader.GetString(bookTitle),
@@ -82,12 +83,80 @@ JOIN authors a ON a.PK = ba.FK_author";
             }
         }
 
-        if (book is null)
+        if (getBook is null)
         {
             throw new Exception("Book doesnt exists!");
         }
         
-        return book;
+        return getBook;
+
+    }
+
+    public async Task<bool> ExistsAuthor(AuthorDTO bookAuthors)
+    {
+        var query = @"SELECT 1 FROM Author WHERE first_name = @authorFirstName AND last_name = @authorLastName";
+        
+        await using var  connection =  new SqlConnection(_configuration.GetConnectionString("Default"));
+        await using var command = new SqlCommand();
+        
+        command.CommandText = query;
+        command.Connection = connection;
+        
+        command.Parameters.AddWithValue("authorLastName", bookAuthors.LastName);
+        command.Parameters.AddWithValue("authorFirstName", bookAuthors.FirstName);
+
+        await connection.OpenAsync();
+        
+        var  res = await command.ExecuteScalarAsync();
+
+        return res is not null;
+    }
+
+    public async Task<GetBookDTO> AddBook(AddBookDTO addBookDto)
+    {
+        var insert = @"INSERT INTO Book VALUES (@bookTitle) SELECT @@IDENTITY AS ID;";
+
+        await using var connection = new SqlConnection(_configuration.GetConnectionString("Default"));
+        await using var command = new SqlCommand();
+        command.Connection = connection;
+        command.CommandText = insert;
+        
+        command.Parameters.AddWithValue("bookTitle", addBookDto.Title);
+
+        await connection.OpenAsync();
+
+        var transaction = await connection.BeginTransactionAsync();
+        command.Transaction = transaction as SqlTransaction;
+
+
+        try
+        {
+            var idBook = await command.ExecuteScalarAsync();
+            foreach (var author in addBookDto.Authors)
+            {
+                var select = @"SELECT ID FROM Authors WHERE first_name = @authorFirstName AND last_name = @authorLastName";
+                command.CommandText = select;
+                command.Parameters.AddWithValue("authorLastName", author.LastName);
+                command.Parameters.AddWithValue("authorFirstName", author.FirstName);
+                var res = await command.ExecuteScalarAsync();
+                command.Parameters.Clear();
+                command.CommandText = "INSERT INTO books_authors VALUES (@BookId,@AuthorId)";
+                command.Parameters.AddWithValue("BookId", idBook);
+                command.Parameters.AddWithValue("AuthorId", res );
+                await command.ExecuteNonQueryAsync();
+            }
+
+            await transaction.CommitAsync();
+            return new GetBookDTO() { Authors = addBookDto.Authors, Id = (int)idBook, Title = addBookDto.Title };
+
+        }
+        catch (Exception e)
+        {
+            await transaction.RollbackAsync();
+            Console.WriteLine(e);
+            throw;
+        }
+
 
     }
 }
