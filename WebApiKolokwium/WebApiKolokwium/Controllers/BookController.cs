@@ -30,7 +30,7 @@ public class BookController : ControllerBase
         }
         catch (Exception e)
         {
-            return BadRequest(new ExceptionDTO() { Message = "Book doesnt exists!", StatusCode = 400 });
+            return BadRequest(new ExceptionDTO() { Message = "Bad request! For given author book doesnt exists!", StatusCode = 404 });
         }
 
     }
@@ -41,10 +41,17 @@ public class BookController : ControllerBase
         foreach (var author in book.Authors)
         {
             if (!await _bookRepository.ExistsAuthor(author))
-                return NotFound(new ExceptionDTO() { Message = "Author not found!", StatusCode = 400 });
+                return NotFound(new ExceptionDTO() { Message = "Author not found!", StatusCode = 404 });
         }
 
-        var res = await _bookRepository.AddBook(book);
-        return StatusCode(201,res);
-}
+        try
+        {
+            var res = await _bookRepository.AddBook(book);
+            return StatusCode(201, res);
+        }
+        catch (Exception e)
+        {
+            return BadRequest(new ExceptionDTO() { Message = e.Message, StatusCode = 400 });
+        }
+    }
 }
