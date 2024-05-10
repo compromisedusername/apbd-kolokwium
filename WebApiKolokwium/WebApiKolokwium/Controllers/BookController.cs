@@ -30,7 +30,7 @@ public class BookController : ControllerBase
         }
         catch (Exception e)
         {
-            return BadRequest(new ExceptionDTO(){Message = "Book doesnt exists!", StatusCode = 400 })
+            return BadRequest(new ExceptionDTO() { Message = "Book doesnt exists!", StatusCode = 400 });
         }
 
     }

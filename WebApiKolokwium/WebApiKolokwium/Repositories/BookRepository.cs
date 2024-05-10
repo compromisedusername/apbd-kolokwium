@@ -94,7 +94,7 @@ JOIN authors a ON a.PK = ba.FK_author";
 
     public async Task<bool> ExistsAuthor(AuthorDTO bookAuthors)
     {
-        var query = @"SELECT 1 FROM Author WHERE first_name = @authorFirstName AND last_name = @authorLastName";
+        var query = @"SELECT 1 FROM Authors WHERE first_name = @authorFirstName AND last_name = @authorLastName";
         
         await using var  connection =  new SqlConnection(_configuration.GetConnectionString("Default"));
         await using var command = new SqlCommand();
@@ -114,7 +114,7 @@ JOIN authors a ON a.PK = ba.FK_author";
 
     public async Task<GetBookDTO> AddBook(AddBookDTO addBookDto)
     {
-        var insert = @"INSERT INTO Book VALUES (@bookTitle) SELECT @@IDENTITY AS ID;";
+        var insert = @"INSERT INTO Books VALUES (@bookTitle) SELECT @@IDENTITY AS ID;";
 
         await using var connection = new SqlConnection(_configuration.GetConnectionString("Default"));
         await using var command = new SqlCommand();
@@ -134,7 +134,8 @@ JOIN authors a ON a.PK = ba.FK_author";
             var idBook = await command.ExecuteScalarAsync();
             foreach (var author in addBookDto.Authors)
             {
-                var select = @"SELECT ID FROM Authors WHERE first_name = @authorFirstName AND last_name = @authorLastName";
+                command.Parameters.Clear();
+                var select = @"SELECT PK FROM Authors WHERE first_name = @authorFirstName AND last_name = @authorLastName";
                 command.CommandText = select;
                 command.Parameters.AddWithValue("authorLastName", author.LastName);
                 command.Parameters.AddWithValue("authorFirstName", author.FirstName);
@@ -147,7 +148,7 @@ JOIN authors a ON a.PK = ba.FK_author";
             }
 
             await transaction.CommitAsync();
-            return new GetBookDTO() { Authors = addBookDto.Authors, Id = (int)idBook, Title = addBookDto.Title };
+            return new GetBookDTO() { Authors = addBookDto.Authors, Id =(int)((decimal)idBook), Title = addBookDto.Title };
 
         }
         catch (Exception e)
